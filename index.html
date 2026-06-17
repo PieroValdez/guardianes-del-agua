@@ -1,0 +1,1460 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Guardianes del Agua</title>
+
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-analytics-compat.js"></script>
+
+  <style>
+    * { box-sizing:border-box; margin:0; padding:0; font-family:Arial, Helvetica, sans-serif; }
+    :root {
+      --azul:#0284c7;
+      --azul2:#075985;
+      --verde:#16a34a;
+      --celeste:#e0f2fe;
+      --fondo:#f0f9ff;
+      --borde:#dbeafe;
+      --texto:#1f2937;
+      --amarillo:#f59e0b;
+      --rojo:#dc2626;
+      --gris:#4b5563;
+    }
+    body { background:var(--fondo); color:var(--texto); min-height:100vh; padding-bottom:82px; }
+    header {
+      background:linear-gradient(135deg,var(--azul2),var(--azul));
+      color:white; padding:16px 12px; text-align:center; position:sticky; top:0; z-index:20;
+      box-shadow:0 3px 12px rgba(0,0,0,.16);
+    }
+    header h1 { font-size:24px; margin-bottom:4px; }
+    header p { font-size:13px; opacity:.96; }
+    main { width:min(1050px,94%); margin:16px auto; }
+    .card {
+      background:white; border-radius:20px; padding:16px; margin-bottom:16px;
+      box-shadow:0 5px 16px rgba(2,132,199,.12); border:1px solid #e0f2fe;
+    }
+    h2 { color:var(--azul2); font-size:22px; margin-bottom:10px; }
+    h3 { color:#374151; font-size:17px; margin:14px 0 9px; }
+    p { line-height:1.45; }
+    .muted { color:#6b7280; font-size:13px; }
+    label { display:block; font-weight:bold; margin:12px 0 6px; }
+    input, select, textarea, button { width:100%; padding:13px; border-radius:13px; border:1px solid #cbd5e1; font-size:16px; }
+    textarea { min-height:95px; resize:vertical; }
+    button { border:none; cursor:pointer; font-weight:bold; touch-action:manipulation; }
+    button:active { transform:scale(.98); }
+    .hidden { display:none !important; }
+    .login-card { max-width:440px; margin:16px auto 10px; }
+    .btn-primary { background:linear-gradient(135deg,var(--azul),#0369a1); color:white; margin-top:12px; }
+    .btn-secondary { background:#2563eb; color:white; margin-top:10px; }
+    .btn-danger { background:var(--rojo); color:white; margin-top:10px; }
+    .btn-gray { background:var(--gris); color:white; margin-top:10px; }
+    .message { margin-top:12px; padding:12px; border-radius:13px; font-weight:bold; display:none; }
+    .success { display:block; background:#dcfce7; color:#166534; }
+    .error { display:block; background:#fee2e2; color:#991b1b; }
+    .warning { display:block; background:#fef3c7; color:#92400e; }
+    .footer-note {
+      text-align:center; color:#075985; font-size:13px; margin:18px 0; opacity:.9; font-weight:bold;
+    }
+
+    .public-ranking { max-width:940px; margin:0 auto 16px; }
+    .voice-actions {
+      display:grid; grid-template-columns:1fr 1fr; gap:10px; margin:12px 0 16px; padding:10px;
+      border-radius:18px; background:#eff6ff; border:1px solid #bfdbfe;
+    }
+    .btn-voice { background:linear-gradient(135deg,#2563eb,#1d4ed8); color:white; box-shadow:0 4px 12px rgba(37,99,235,.25); }
+    .btn-stop-voice { background:#374151; color:white; }
+
+    .ranking-podium {
+      display:grid; grid-template-columns:repeat(auto-fit,minmax(240px,1fr)); gap:14px; margin:14px 0;
+    }
+    .podium-public-card {
+      border-radius:22px; padding:18px; text-align:center; border:2px solid var(--borde);
+      background:#f8fafc; box-shadow:0 6px 16px rgba(0,0,0,.08);
+    }
+    .podium-public-card.first {
+      background:linear-gradient(135deg,#ecfdf5,#e0f2fe);
+      border-color:#16a34a;
+      transform:scale(1.02);
+    }
+    .podium-public-card.second {
+      background:linear-gradient(135deg,#fff7ed,#fef3c7);
+      border-color:#f59e0b;
+    }
+    .place-medal { font-size:42px; display:block; margin-bottom:6px; }
+    .place-label { font-weight:900; color:#374151; font-size:14px; }
+    .place-title { font-weight:900; font-size:22px; margin:6px 0; color:#0f172a; }
+    .place-score { font-size:26px; font-weight:900; color:var(--azul2); }
+    .emoji-level { font-size:42px; display:block; margin-top:6px; }
+    .level-text { font-weight:900; font-size:16px; margin-top:4px; }
+    .champion-box { margin-top:12px; background:#ecfeff; border:1px solid #a5f3fc; border-radius:14px; padding:12px; }
+
+    .top-bar { display:flex; justify-content:space-between; align-items:center; gap:10px; flex-wrap:wrap; margin-bottom:14px; }
+    .role-badge { padding:9px 12px; border-radius:999px; background:#e0f2fe; color:#075985; font-weight:bold; }
+    .logout-btn { width:auto; padding:10px 18px; margin:0; }
+
+    .bottom-nav {
+      position:fixed; left:0; right:0; bottom:0; background:white; border-top:1px solid var(--borde);
+      display:grid; grid-template-columns:repeat(4,1fr); gap:4px; padding:7px 6px 9px; z-index:30;
+      box-shadow:0 -4px 14px rgba(0,0,0,.08);
+    }
+    .nav-btn { background:#f3f4f6; color:#374151; padding:9px 3px; border-radius:13px; font-size:12px; margin:0; }
+    .nav-btn.active { background:var(--azul); color:white; }
+    .tab-section { display:none; }
+    .tab-section.active { display:block; }
+
+    .progress-box { background:#f8fafc; border:1px solid var(--borde); border-radius:14px; padding:13px; margin-top:10px; }
+    .progress-row { display:flex; justify-content:space-between; gap:10px; font-size:14px; margin-bottom:8px; }
+    .progress-bar { height:13px; background:#e5e7eb; border-radius:999px; overflow:hidden; }
+    .progress-fill { height:100%; background:var(--azul); width:0%; transition:width .2s; }
+
+    .ambientes-grid { display:grid; grid-template-columns:repeat(auto-fit,minmax(280px,1fr)); gap:14px; margin-top:14px; }
+    .ambiente-card { border:1px solid var(--borde); border-radius:18px; padding:14px; background:white; box-shadow:0 2px 8px rgba(0,0,0,.04); }
+    .ambiente-head { display:flex; justify-content:space-between; align-items:flex-start; gap:10px; margin-bottom:10px; }
+    .ambiente-title { font-weight:900; font-size:18px; color:#0f172a; }
+    .estado-mini { font-size:13px; color:#6b7280; text-align:right; }
+    .score-pill { display:inline-block; margin-top:4px; padding:4px 8px; border-radius:999px; background:#f3f4f6; color:#111827; font-weight:bold; }
+    .optimo-btn { background:#dcfce7; color:#166534; border:1px solid #bbf7d0; margin:8px 0; }
+
+    .check-section { border:1px solid var(--borde); border-radius:14px; padding:10px; background:#f8fafc; margin-top:9px; }
+    .check-section-title { font-weight:900; margin-bottom:8px; }
+    .checks { display:grid; gap:7px; }
+    .check-item { display:flex; align-items:center; gap:8px; font-size:14px; font-weight:normal; margin:0; }
+    .check-item input { width:auto; padding:0; }
+    .detalle-box { margin-top:10px; padding:10px; border-radius:12px; border:1px dashed #ef4444; background:#fff1f2; }
+    .detalle-box textarea { min-height:70px; font-size:14px; }
+
+    .grid { display:grid; grid-template-columns:repeat(auto-fit,minmax(210px,1fr)); gap:12px; }
+    .kpi-grid { display:grid; grid-template-columns:repeat(auto-fit,minmax(170px,1fr)); gap:12px; margin:12px 0; }
+    .kpi-card { border:1px solid var(--borde); border-radius:16px; padding:14px; background:#f8fafc; text-align:center; }
+    .kpi-card strong { display:block; font-size:28px; margin:5px 0; }
+    .kpi-card.total { background:#eff6ff; border-color:#bfdbfe; }
+    .kpi-card.leve { background:#fffbeb; border-color:#fde68a; }
+    .kpi-card.grave { background:#fee2e2; border-color:#fecaca; }
+    .kpi-card.reparacion { background:#fff1f2; border-color:#fecdd3; }
+    .tabla-scroll { width:100%; overflow-x:auto; margin-top:12px; }
+    .tabla-cuantitativa { width:100%; border-collapse:collapse; min-width:680px; }
+    .tabla-cuantitativa th, .tabla-cuantitativa td { padding:10px; border-bottom:1px solid var(--borde); text-align:center; font-size:13px; }
+    .tabla-cuantitativa th { background:var(--azul2); color:white; }
+    .tabla-cuantitativa tr:nth-child(even) { background:#f8fafc; }
+
+    .historial-list { display:grid; gap:10px; margin-top:12px; }
+    .historial-card { border:1px solid var(--borde); border-radius:14px; padding:12px; background:white; display:grid; gap:5px; }
+    .historial-top { display:flex; justify-content:space-between; gap:10px; align-items:center; }
+    .historial-aula { font-weight:900; }
+    .emoji-badge { font-size:30px; display:inline-block; }
+    .alert-item { background:#fff1f2; color:#991b1b; padding:10px; border-radius:12px; margin-top:8px; border:1px solid #fecdd3; }
+    .chart-container { width:100%; overflow-x:auto; margin-top:12px; }
+    canvas { background:white; border-radius:12px; padding:10px; min-height:320px; min-width:620px; }
+    .fallback-box { margin-top:12px; display:none; }
+
+    @media (max-width:700px){
+      main{width:94%; margin:14px auto;} header h1{font-size:21px;} .card{padding:14px;}
+      .top-bar{align-items:stretch;} .role-badge,.logout-btn{width:100%; text-align:center;}
+      .voice-actions{grid-template-columns:1fr;}
+      .bottom-nav{grid-template-columns:repeat(4,1fr);}
+      .ambientes-grid{grid-template-columns:1fr;}
+      .ranking-podium{grid-template-columns:1fr;}
+    }
+  </style>
+</head>
+<body>
+  <header>
+    <h1>💧 Guardianes del Agua</h1>
+    <p>Control de SS.HH. ecoamigables - I.E. República de Chile</p>
+  </header>
+
+  <main>
+    <section id="loginSection">
+      <section class="card public-ranking">
+        <h2>🏆 Ranking de SS.HH. ecoamigables</h2>
+        <p class="muted">El ranking se actualiza durante el mes entre SS.HH. VARONES y SS.HH. MUJERES.</p>
+
+        <div class="voice-actions">
+          <button id="leerRankingBtn" class="btn-voice" type="button">🔊 Escuchar resultados</button>
+          <button id="detenerVozBtn" class="btn-stop-voice" type="button">⏹ Detener voz</button>
+        </div>
+        <div id="vozMessage" class="message"></div>
+
+        <div id="rankingPublico">
+          <div class="message warning" style="display:block;">Cargando ranking...</div>
+        </div>
+
+        <div id="campeonAnterior" class="champion-box">
+          Cargando campeón del mes anterior...
+        </div>
+      </section>
+
+      <section class="card login-card">
+        <h2>Ingreso al sistema</h2>
+        <p>Seleccione su usuario e ingrese su contraseña.</p>
+
+        <label for="userSelect">Usuario</label>
+        <select id="userSelect"></select>
+
+        <label for="passwordInput">Contraseña</label>
+        <input type="password" id="passwordInput" placeholder="Ingrese la contraseña" autocomplete="current-password" />
+        <button id="loginBtn" class="btn-primary" type="button">Ingresar</button>
+        <div id="loginMessage" class="message"></div>
+      </section>
+
+      <p class="footer-note">Creado por Piero Valdez - 2026</p>
+    </section>
+
+    <section id="appSection" class="hidden">
+      <div class="top-bar">
+        <span id="roleBadge" class="role-badge"></span>
+        <button id="logoutBtn" class="btn-gray logout-btn" type="button">Cerrar sesión</button>
+      </div>
+
+      <section id="tabRegistrar" class="tab-section active">
+        <section class="card">
+          <h2>Registro diario de SS.HH.</h2>
+          <p>Marque las incidencias observadas. La app calculará automáticamente el puntaje y el emoticón.</p>
+
+          <label for="fechaInput">Fecha de control</label>
+          <input type="date" id="fechaInput" />
+
+          <div class="progress-box">
+            <div class="progress-row">
+              <strong id="avanceTexto">Avance: 0/2 ambientes</strong>
+              <span id="faltantesTexto">Faltan 2</span>
+            </div>
+            <div class="progress-bar"><div id="avanceBarra" class="progress-fill"></div></div>
+          </div>
+
+          <div id="registroMessage" class="message"></div>
+          <div id="ambientesContainer" class="ambientes-grid"></div>
+
+          <button id="guardarDiaBtn" class="btn-primary" type="button">Guardar control del día</button>
+          <button id="cargarHoyBtn" class="btn-gray" type="button">Volver a la fecha de hoy</button>
+        </section>
+      </section>
+
+      <section id="tabHistorial" class="tab-section">
+        <section class="card">
+          <h2>Historial</h2>
+          <div class="grid">
+            <div>
+              <label for="historialFechaFiltro">Filtrar por fecha</label>
+              <input type="date" id="historialFechaFiltro" />
+            </div>
+            <div>
+              <label>&nbsp;</label>
+              <button id="verTodosHistorialBtn" class="btn-gray" type="button">Ver todos</button>
+            </div>
+          </div>
+          <div id="historialResumen" class="message warning"></div>
+          <div id="historialLista" class="historial-list"></div>
+        </section>
+      </section>
+
+      <section id="tabEstadisticas" class="tab-section admin-only-content">
+        <section class="card">
+          <h2>Informe cuantitativo de incidencias</h2>
+          <p class="muted">Panel para coordinadora: cantidades por día, semana, mes o todo el registro.</p>
+          <label for="filtroPeriodoStats">Periodo de análisis</label>
+          <select id="filtroPeriodoStats">
+            <option value="hoy">Por día: hoy</option>
+            <option value="semana">Por semana: esta semana</option>
+            <option value="mes" selected>Por mes: este mes</option>
+            <option value="anio">Todo el año</option>
+            <option value="todo">Todo el registro</option>
+          </select>
+          <div id="resumenGeneralIncidencias"></div>
+        </section>
+
+        <section class="card">
+          <h2>Incidencias por SS.HH.</h2>
+          <div id="resumenEstadistico"></div>
+        </section>
+
+        <section class="card">
+          <h2>Gráfico estadístico</h2>
+          <div class="chart-container"><canvas id="graficoAmbientes"></canvas></div>
+        </section>
+      </section>
+
+      <section id="tabInforme" class="tab-section admin-only-content">
+        <section class="card">
+          <h2>Informe para coordinadora</h2>
+          <label for="filtroPeriodoInforme">Periodo del informe</label>
+          <select id="filtroPeriodoInforme">
+            <option value="hoy">Diario: hoy</option>
+            <option value="semana">De esta semana</option>
+            <option value="mes" selected>Mensual: este mes</option>
+            <option value="anio">Todo el año</option>
+            <option value="todo">Todo el registro</option>
+          </select>
+
+          <div id="informeAutomatico" style="margin-top:12px;"></div>
+          <button id="copiarInformeBtn" class="btn-secondary" type="button">Copiar informe</button>
+          <button id="descargarExcelBtn" class="btn-secondary" type="button">Descargar Excel del periodo</button>
+
+          <div id="fallbackDescarga" class="fallback-box">
+            <p><strong>Respaldo:</strong> si el celular bloquea la descarga, copie estos datos y péguelos en Excel o Google Sheets.</p>
+            <button id="copiarDatosBtn" class="btn-secondary" type="button">Copiar datos</button>
+            <textarea id="datosParaCopiar" readonly></textarea>
+          </div>
+
+          <div id="informeMessage" class="message"></div>
+        </section>
+
+        <section class="card">
+          <h2>Alertas de reparación</h2>
+          <div id="alertasReparacion"></div>
+        </section>
+
+        <section class="card">
+          <h2>Administración</h2>
+          <div class="grid">
+            <div>
+              <label for="fechaBorrarInput">Borrar registros por día</label>
+              <input type="date" id="fechaBorrarInput" />
+              <button id="borrarDiaBtn" class="btn-danger" type="button">Borrar registros de esa fecha</button>
+            </div>
+            <div>
+              <label>Limpiar sistema</label>
+              <button id="limpiarBtn" class="btn-gray" type="button">Limpiar todos los registros</button>
+            </div>
+          </div>
+          <div id="adminMessage" class="message"></div>
+        </section>
+      </section>
+
+      <p class="footer-note">Creado por Piero Valdez - 2026</p>
+    </section>
+  </main>
+
+  <nav id="bottomNav" class="bottom-nav hidden">
+    <button class="nav-btn active" type="button" data-tab="Registrar">💧<br>Registrar</button>
+    <button class="nav-btn" type="button" data-tab="Historial">📋<br>Historial</button>
+    <button class="nav-btn admin-only-nav" type="button" data-tab="Estadisticas">📊<br>Estadísticas</button>
+    <button class="nav-btn admin-only-nav" type="button" data-tab="Informe">📄<br>Informe</button>
+  </nav>
+
+  <script>
+    'use strict';
+
+    const STORAGE_USUARIO = 'aguaUsuario';
+    const STORAGE_REGISTROS = 'aguaRegistros';
+    const COLECCION = 'registros_guardianes_agua';
+
+    const usuarios = {
+      'Kenny': { password:'KENNY2026', rol:'Brigadista' },
+      'Jhonatan': { password:'JHONATAN2026', rol:'Brigadista' },
+      'Mia Elvira': { password:'MIAELVIRA2026', rol:'Brigadista' },
+      'Molina': { password:'MOLINA2026', rol:'Brigadista' },
+      'Coordinadora': { password:'@RCH2026', rol:'Coordinadora' }
+    };
+
+    const ambientes = ['SS.HH. VARONES', 'SS.HH. MUJERES'];
+
+    const incidenciasLeves = [
+      { nombre:'Water sin pasar', puntos:1 },
+      { nombre:'Pisos mojados', puntos:1 },
+      { nombre:'Baño sucio', puntos:1 },
+      { nombre:'Papeles fuera del tacho', puntos:1 }
+    ];
+
+    const incidenciasGraves = [
+      { nombre:'Caño abierto', puntos:3 }
+    ];
+
+    const incidenciasReparacion = [
+      { nombre:'Caño malogrado', puntos:5 },
+      { nombre:'Water malogrado', puntos:5 },
+      { nombre:'Puerta malograda', puntos:5 }
+    ];
+
+    const firebaseConfig = {
+      apiKey: 'AIzaSyC4vjdYfKd7CGeRLpKUzrX1hGga8UzBRWQ',
+      authDomain: 'semaforo-cyt.firebaseapp.com',
+      projectId: 'semaforo-cyt',
+      storageBucket: 'semaforo-cyt.firebasestorage.app',
+      messagingSenderId: '737186784022',
+      appId: '1:737186784022:web:29af6da43a052667dae637',
+      measurementId: 'G-61LNM2H9LW'
+    };
+
+    let db = null;
+    let analytics = null;
+    let firebaseDisponible = false;
+    let usuarioActual = null;
+    let rolActual = null;
+    let seleccionesDia = {};
+    let registrosCache = [];
+    let chartAmbientes = null;
+    let rankingActualMes = [];
+    let ultimoInformeTexto = '';
+
+    function $(id) { return document.getElementById(id); }
+
+    function escapeHtml(texto) {
+      return String(texto == null ? '' : texto).replace(/[&<>"']/g, function(c) {
+        return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c];
+      });
+    }
+
+    function safeId(texto) {
+      return String(texto).normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase().replace(/[^a-z0-9]/g, '');
+    }
+
+    function mostrarMensaje(id, texto, tipo) {
+      const el = $(id);
+      if (!el) return;
+      el.textContent = texto;
+      el.className = 'message ' + (tipo === 'error' ? 'error' : tipo === 'warning' ? 'warning' : 'success');
+    }
+
+    function limpiarMensaje(id) {
+      const el = $(id);
+      if (!el) return;
+      el.textContent = '';
+      el.className = 'message';
+    }
+
+    function obtenerFechaLocalISO() {
+      const hoy = new Date();
+      return hoy.getFullYear() + '-' + String(hoy.getMonth() + 1).padStart(2, '0') + '-' + String(hoy.getDate()).padStart(2, '0');
+    }
+
+    function formatearFecha(fecha) {
+      if (!fecha || !fecha.includes('-')) return fecha || '-';
+      const p = fecha.split('-');
+      return p[2] + '/' + p[1] + '/' + p[0];
+    }
+
+    function obtenerMesActual() { return obtenerFechaLocalISO().slice(0, 7); }
+
+    function obtenerMesAnterior() {
+      const hoy = new Date(obtenerFechaLocalISO() + 'T00:00:00');
+      hoy.setMonth(hoy.getMonth() - 1);
+      return hoy.getFullYear() + '-' + String(hoy.getMonth() + 1).padStart(2, '0');
+    }
+
+    function inicializarFirebase() {
+      try {
+        if (window.firebase && firebase.initializeApp && firebase.firestore) {
+          if (!firebase.apps.length) firebase.initializeApp(firebaseConfig);
+          else firebase.app();
+
+          db = firebase.firestore();
+
+          if (firebase.analytics) {
+            try { analytics = firebase.analytics(); } catch(e) { analytics = null; }
+          }
+
+          firebaseDisponible = true;
+          console.log('Firebase conectado');
+        } else {
+          firebaseDisponible = false;
+          console.warn('Firebase no cargó. Modo local.');
+        }
+      } catch(e) {
+        firebaseDisponible = false;
+        db = null;
+        analytics = null;
+        console.error('Error Firebase:', e);
+      }
+    }
+
+    function cargarUsuarios() {
+      const select = $('userSelect');
+      select.innerHTML = '';
+      Object.keys(usuarios).forEach(nombre => {
+        const opt = document.createElement('option');
+        opt.value = nombre;
+        opt.textContent = nombre;
+        select.appendChild(opt);
+      });
+    }
+
+    function ponerFechaActual() {
+      const hoy = obtenerFechaLocalISO();
+      $('fechaInput').value = hoy;
+      $('fechaBorrarInput').value = hoy;
+      $('historialFechaFiltro').value = hoy;
+    }
+
+    function crearSeleccionVacia() {
+      return { evaluada:false, leves:[], graves:[], reparacion:[], detalleReparacion:'' };
+    }
+
+    function obtenerNivel(item) {
+      const leves = item.leves || [];
+      const graves = item.graves || [];
+      const reparacion = item.reparacion || [];
+
+      let descuento = 0;
+      leves.forEach(x => descuento += Number(x.puntos || 1));
+      graves.forEach(x => descuento += Number(x.puntos || 3));
+      reparacion.forEach(x => descuento += Number(x.puntos || 5));
+
+      let puntaje = 10 - descuento;
+      if (puntaje < 0) puntaje = 0;
+
+      let emoji = '😎';
+      let texto = '¡Cuidado óptimo!';
+      if (puntaje === 10) { emoji = '😎'; texto = '¡Cuidado óptimo!'; }
+      else if (puntaje >= 7) { emoji = '🤢'; texto = '¡Casi lo logras!'; }
+      else if (puntaje >= 4) { emoji = '🤧'; texto = '¡Sigue intentando!'; }
+      else { emoji = '🤮'; texto = '¡Demuestra que sí puedes!'; }
+
+      return { puntaje, emoji, texto, descuento };
+    }
+
+    function crearIdRegistro(fecha, ambiente) { return fecha + '_' + safeId(ambiente); }
+
+    async function cargarRegistros() {
+      if (firebaseDisponible && db) {
+        try {
+          const snapshot = await db.collection(COLECCION).get();
+          registrosCache = snapshot.docs.map(doc => doc.data());
+          localStorage.setItem(STORAGE_REGISTROS, JSON.stringify(registrosCache));
+          return registrosCache;
+        } catch(e) {
+          console.error('Error leyendo Firebase:', e);
+          mostrarMensaje('loginMessage', 'Firebase no permitió leer. Se usará copia local.', 'warning');
+        }
+      }
+
+      try {
+        const local = JSON.parse(localStorage.getItem(STORAGE_REGISTROS));
+        registrosCache = Array.isArray(local) ? local : [];
+      } catch(e) {
+        registrosCache = [];
+      }
+      return registrosCache;
+    }
+
+    function obtenerRegistros() { return Array.isArray(registrosCache) ? registrosCache : []; }
+    function guardarCache(registros) { registrosCache = registros; localStorage.setItem(STORAGE_REGISTROS, JSON.stringify(registros)); }
+
+    async function login() {
+      const nombre = $('userSelect').value;
+      const password = $('passwordInput').value.trim();
+      limpiarMensaje('loginMessage');
+
+      const user = usuarios[nombre];
+      if (!user || password !== user.password) {
+        mostrarMensaje('loginMessage', 'Contraseña incorrecta para el usuario seleccionado.', 'error');
+        return;
+      }
+
+      usuarioActual = nombre;
+      rolActual = user.rol;
+      localStorage.setItem(STORAGE_USUARIO, JSON.stringify({ usuario: usuarioActual, rol: rolActual }));
+      await mostrarApp();
+    }
+
+    async function mostrarApp() {
+      $('loginSection').classList.add('hidden');
+      $('appSection').classList.remove('hidden');
+      $('bottomNav').classList.remove('hidden');
+      $('roleBadge').textContent = usuarioActual + ' | ' + rolActual;
+      $('passwordInput').value = '';
+
+      const esCoordinadora = rolActual === 'Coordinadora';
+      document.querySelectorAll('.admin-only-content').forEach(el => el.classList.toggle('hidden', !esCoordinadora));
+      document.querySelectorAll('.admin-only-nav').forEach(el => el.classList.toggle('hidden', !esCoordinadora));
+
+      await cargarRegistros();
+      cambiarTab('Registrar');
+      cargarSeleccionesDeFecha();
+      mostrarHistorial();
+      actualizarEstadisticas();
+      generarRankingPublico();
+    }
+
+    async function cargarSesion() {
+      try {
+        const sesion = JSON.parse(localStorage.getItem(STORAGE_USUARIO));
+        if (sesion && usuarios[sesion.usuario] && sesion.rol) {
+          usuarioActual = sesion.usuario;
+          rolActual = sesion.rol;
+          await mostrarApp();
+        }
+      } catch(e) {}
+    }
+
+    function logout() {
+      usuarioActual = null;
+      rolActual = null;
+      localStorage.removeItem(STORAGE_USUARIO);
+      $('loginSection').classList.remove('hidden');
+      $('appSection').classList.add('hidden');
+      $('bottomNav').classList.add('hidden');
+      generarRankingPublico();
+    }
+
+    function crearTarjetasAmbientes() {
+      const cont = $('ambientesContainer');
+      cont.innerHTML = '';
+
+      ambientes.forEach(ambiente => {
+        const id = safeId(ambiente);
+        const card = document.createElement('div');
+        card.className = 'ambiente-card';
+        card.setAttribute('data-ambiente', ambiente);
+
+        card.innerHTML = `
+          <div class="ambiente-head">
+            <span class="ambiente-title">${escapeHtml(ambiente)}</span>
+            <span class="estado-mini" id="estado-${id}">
+              Sin evaluar<br><span class="score-pill">-- pts</span>
+            </span>
+          </div>
+
+          <button class="optimo-btn" type="button" data-optimo="${escapeHtml(ambiente)}">😎 Cuidado óptimo</button>
+
+          <div class="check-section">
+            <div class="check-section-title">🤢 Incidencias de cuidado (-1)</div>
+            <div class="checks">
+              ${incidenciasLeves.map(f => `
+                <label class="check-item">
+                  <input type="checkbox" data-ambiente="${escapeHtml(ambiente)}" data-tipo="leve" data-puntos="${f.puntos}" value="${escapeHtml(f.nombre)}">
+                  ${escapeHtml(f.nombre)}
+                </label>
+              `).join('')}
+            </div>
+          </div>
+
+          <div class="check-section">
+            <div class="check-section-title">🤧 Incidencias graves de agua (-3)</div>
+            <div class="checks">
+              ${incidenciasGraves.map(f => `
+                <label class="check-item">
+                  <input type="checkbox" data-ambiente="${escapeHtml(ambiente)}" data-tipo="grave" data-puntos="${f.puntos}" value="${escapeHtml(f.nombre)}">
+                  ${escapeHtml(f.nombre)}
+                </label>
+              `).join('')}
+            </div>
+          </div>
+
+          <div class="check-section">
+            <div class="check-section-title">🤮 Reparación necesaria (-5)</div>
+            <div class="checks">
+              ${incidenciasReparacion.map(f => `
+                <label class="check-item">
+                  <input type="checkbox" data-ambiente="${escapeHtml(ambiente)}" data-tipo="reparacion" data-puntos="${f.puntos}" value="${escapeHtml(f.nombre)}">
+                  ${escapeHtml(f.nombre)}
+                </label>
+              `).join('')}
+            </div>
+            <div id="detalle-box-${id}" class="detalle-box hidden">
+              <label>Detalle para subsanar</label>
+              <textarea data-detalle-reparacion="${escapeHtml(ambiente)}" placeholder="Ejemplo: caño del lavadero izquierdo gotea constantemente."></textarea>
+            </div>
+          </div>
+        `;
+
+        cont.appendChild(card);
+      });
+
+      document.querySelectorAll('[data-optimo]').forEach(btn => {
+        btn.addEventListener('click', () => marcarOptimo(btn.getAttribute('data-optimo')));
+      });
+
+      document.querySelectorAll('input[type="checkbox"][data-ambiente]').forEach(chk => {
+        chk.addEventListener('change', () => actualizarDesdeCheckbox(chk.getAttribute('data-ambiente')));
+      });
+
+      document.querySelectorAll('textarea[data-detalle-reparacion]').forEach(txt => {
+        txt.addEventListener('input', () => {
+          const ambiente = txt.getAttribute('data-detalle-reparacion');
+          if (!seleccionesDia[ambiente]) seleccionesDia[ambiente] = crearSeleccionVacia();
+          seleccionesDia[ambiente].detalleReparacion = txt.value.trim();
+        });
+      });
+    }
+
+    function marcarOptimo(ambiente) {
+      seleccionesDia[ambiente] = crearSeleccionVacia();
+      seleccionesDia[ambiente].evaluada = true;
+
+      const card = document.querySelector('.ambiente-card[data-ambiente="' + ambiente + '"]');
+      if (card) {
+        card.querySelectorAll('input[type="checkbox"]').forEach(chk => chk.checked = false);
+        const txt = card.querySelector('textarea[data-detalle-reparacion]');
+        if (txt) txt.value = '';
+      }
+      renderAmbiente(ambiente);
+      actualizarAvance();
+      limpiarMensaje('registroMessage');
+    }
+
+    function actualizarDesdeCheckbox(ambiente) {
+      if (!seleccionesDia[ambiente]) seleccionesDia[ambiente] = crearSeleccionVacia();
+      const card = document.querySelector('.ambiente-card[data-ambiente="' + ambiente + '"]');
+      if (!card) return;
+
+      const leves = [];
+      const graves = [];
+      const reparacion = [];
+
+      card.querySelectorAll('input[type="checkbox"][data-tipo="leve"]').forEach(chk => {
+        if (chk.checked) leves.push({ nombre:chk.value, puntos:Number(chk.getAttribute('data-puntos')) || 1 });
+      });
+      card.querySelectorAll('input[type="checkbox"][data-tipo="grave"]').forEach(chk => {
+        if (chk.checked) graves.push({ nombre:chk.value, puntos:Number(chk.getAttribute('data-puntos')) || 3 });
+      });
+      card.querySelectorAll('input[type="checkbox"][data-tipo="reparacion"]').forEach(chk => {
+        if (chk.checked) reparacion.push({ nombre:chk.value, puntos:Number(chk.getAttribute('data-puntos')) || 5 });
+      });
+
+      seleccionesDia[ambiente].evaluada = true;
+      seleccionesDia[ambiente].leves = leves;
+      seleccionesDia[ambiente].graves = graves;
+      seleccionesDia[ambiente].reparacion = reparacion;
+
+      const txt = card.querySelector('textarea[data-detalle-reparacion]');
+      if (txt) seleccionesDia[ambiente].detalleReparacion = txt.value.trim();
+
+      renderAmbiente(ambiente);
+      actualizarAvance();
+      limpiarMensaje('registroMessage');
+    }
+
+    function renderAmbiente(ambiente) {
+      const item = seleccionesDia[ambiente] || crearSeleccionVacia();
+      const id = safeId(ambiente);
+      const card = document.querySelector('.ambiente-card[data-ambiente="' + ambiente + '"]');
+      if (!card) return;
+
+      card.querySelectorAll('input[type="checkbox"][data-tipo="leve"]').forEach(chk => {
+        chk.checked = item.leves.some(x => x.nombre === chk.value);
+      });
+      card.querySelectorAll('input[type="checkbox"][data-tipo="grave"]').forEach(chk => {
+        chk.checked = item.graves.some(x => x.nombre === chk.value);
+      });
+      card.querySelectorAll('input[type="checkbox"][data-tipo="reparacion"]').forEach(chk => {
+        chk.checked = item.reparacion.some(x => x.nombre === chk.value);
+      });
+
+      const detalleBox = $('detalle-box-' + id);
+      if (detalleBox) detalleBox.classList.toggle('hidden', !(item.reparacion && item.reparacion.length));
+
+      const txt = card.querySelector('textarea[data-detalle-reparacion]');
+      if (txt) txt.value = item.detalleReparacion || '';
+
+      const estado = $('estado-' + id);
+      if (estado) {
+        if (!item.evaluada) {
+          estado.innerHTML = 'Sin evaluar<br><span class="score-pill">-- pts</span>';
+        } else {
+          const nivel = obtenerNivel(item);
+          estado.innerHTML = `${nivel.emoji} ${nivel.texto}<br><span class="score-pill">${nivel.puntaje} pts</span>`;
+        }
+      }
+    }
+
+    function actualizarAvance() {
+      const marcadas = ambientes.filter(a => seleccionesDia[a] && seleccionesDia[a].evaluada).length;
+      const faltan = ambientes.length - marcadas;
+      $('avanceTexto').textContent = 'Avance: ' + marcadas + '/' + ambientes.length + ' ambientes';
+      $('faltantesTexto').textContent = faltan === 0 ? 'Completo' : 'Faltan ' + faltan;
+      $('avanceBarra').style.width = Math.round((marcadas / ambientes.length) * 100) + '%';
+    }
+
+    function cargarSeleccionesDeFecha() {
+      const fecha = $('fechaInput').value;
+      const registros = obtenerRegistros().filter(r => r.fecha === fecha);
+      seleccionesDia = {};
+      ambientes.forEach(a => seleccionesDia[a] = crearSeleccionVacia());
+
+      registros.forEach(r => {
+        if (ambientes.includes(r.ambiente)) {
+          seleccionesDia[r.ambiente] = {
+            evaluada:true,
+            leves: Array.isArray(r.leves) ? r.leves : [],
+            graves: Array.isArray(r.graves) ? r.graves : [],
+            reparacion: Array.isArray(r.reparacion) ? r.reparacion : [],
+            detalleReparacion: r.detalleReparacion || ''
+          };
+        }
+      });
+
+      crearTarjetasAmbientes();
+      ambientes.forEach(renderAmbiente);
+      actualizarAvance();
+
+      if (registros.length > 0) mostrarMensaje('registroMessage', 'Se cargaron registros existentes del ' + formatearFecha(fecha) + '. Puede modificarlos y volver a guardar.', 'warning');
+      else limpiarMensaje('registroMessage');
+    }
+
+    function validarDiaCompleto() {
+      const faltantes = ambientes.filter(a => !(seleccionesDia[a] && seleccionesDia[a].evaluada));
+      if (faltantes.length) {
+        mostrarMensaje('registroMessage', 'No se puede guardar. Falta evaluar: ' + faltantes.join(', '), 'error');
+        return false;
+      }
+
+      const sinDetalle = ambientes.filter(a => {
+        const it = seleccionesDia[a];
+        return it.reparacion && it.reparacion.length > 0 && !String(it.detalleReparacion || '').trim();
+      });
+      if (sinDetalle.length) {
+        mostrarMensaje('registroMessage', 'Falta detallar la reparación necesaria en: ' + sinDetalle.join(', '), 'error');
+        return false;
+      }
+      return true;
+    }
+
+    async function guardarDia() {
+      const fecha = $('fechaInput').value;
+      if (!fecha) { mostrarMensaje('registroMessage','Seleccione una fecha.','error'); return; }
+      if (!validarDiaCompleto()) return;
+
+      let registros = obtenerRegistros();
+      const hora = new Date().toLocaleTimeString('es-PE', { hour:'2-digit', minute:'2-digit' });
+      const nuevosDelDia = [];
+
+      ambientes.forEach(ambiente => {
+        const s = seleccionesDia[ambiente];
+        const nivel = obtenerNivel(s);
+        nuevosDelDia.push({
+          id: crearIdRegistro(fecha, ambiente),
+          fecha,
+          mes: fecha.slice(0,7),
+          ambiente,
+          puntaje: nivel.puntaje,
+          emoji: nivel.emoji,
+          nivelTexto: nivel.texto,
+          leves: s.leves || [],
+          graves: s.graves || [],
+          reparacion: s.reparacion || [],
+          detalleReparacion: s.detalleReparacion || '',
+          usuario: usuarioActual,
+          rol: rolActual,
+          hora,
+          actualizadoEn: new Date().toISOString()
+        });
+      });
+
+      registros = registros.filter(r => r.fecha !== fecha).concat(nuevosDelDia);
+
+      if (firebaseDisponible && db) {
+        try {
+          const batch = db.batch();
+          nuevosDelDia.forEach(r => batch.set(db.collection(COLECCION).doc(r.id), r));
+          await batch.commit();
+          guardarCache(registros);
+          mostrarMensaje('registroMessage','Control guardado en Firebase para el ' + formatearFecha(fecha) + '.', 'success');
+        } catch(e) {
+          console.error(e);
+          guardarCache(registros);
+          mostrarMensaje('registroMessage','Firebase no respondió. Se guardó localmente para no perder el registro.', 'warning');
+        }
+      } else {
+        guardarCache(registros);
+        mostrarMensaje('registroMessage','Control guardado en este dispositivo. Firebase no está conectado.', 'warning');
+      }
+
+      generarRankingPublico();
+      mostrarHistorial();
+      actualizarEstadisticas();
+      generarInforme();
+    }
+
+    function obtenerRankingPorMes(mes, incluirTodos = true) {
+      const registros = obtenerRegistros().filter(r => (r.mes || (r.fecha || '').slice(0,7)) === mes);
+      const mapa = {};
+      ambientes.forEach(a => mapa[a] = { ambiente:a, puntaje:0, registros:0, optimo:0, casi:0, sigue:0, demuestra:0 });
+
+      registros.forEach(r => {
+        if (!mapa[r.ambiente]) return;
+        mapa[r.ambiente].puntaje += Number(r.puntaje || 0);
+        mapa[r.ambiente].registros++;
+        if (r.emoji === '😎') mapa[r.ambiente].optimo++;
+        else if (r.emoji === '🤢') mapa[r.ambiente].casi++;
+        else if (r.emoji === '🤧') mapa[r.ambiente].sigue++;
+        else if (r.emoji === '🤮') mapa[r.ambiente].demuestra++;
+      });
+
+      return Object.values(mapa)
+        .filter(x => incluirTodos || x.registros > 0)
+        .sort((a,b) => b.puntaje - a.puntaje || b.optimo - a.optimo || a.demuestra - b.demuestra);
+    }
+
+    function generarRankingPublico() {
+      const mesActual = obtenerMesActual();
+      const mesAnterior = obtenerMesAnterior();
+      const ranking = obtenerRankingPorMes(mesActual, true);
+      rankingActualMes = ranking;
+      const conDatos = ranking.filter(x => x.registros > 0);
+      const anterior = obtenerRankingPorMes(mesAnterior, false);
+      const cont = $('rankingPublico');
+      const champ = $('campeonAnterior');
+
+      if (!conDatos.length) {
+        cont.innerHTML = `
+          <div class="message warning" style="display:block;">Todavía no hay registros del mes actual.</div>
+          <div class="ranking-podium">
+            ${ranking.map((x,i)=>`
+              <div class="podium-public-card ${i===0?'first':'second'}">
+                <span class="place-medal">${i===0?'🏆':'🥈'}</span>
+                <div class="place-label">PUESTO ${i+1}</div>
+                <div class="place-title">${escapeHtml(x.ambiente)}</div>
+                <div class="place-score">0 pts</div>
+                <span class="emoji-level">😎</span>
+                <div class="level-text">Sin registros aún</div>
+              </div>`).join('')}
+          </div>`;
+      } else {
+        cont.innerHTML = `
+          <div class="ranking-podium">
+            ${ranking.map((x,i)=>{
+              const promedio = x.registros ? Math.round(x.puntaje / x.registros) : 10;
+              const nivel = obtenerNivelDesdePuntaje(promedio);
+              return `
+                <div class="podium-public-card ${i===0?'first':'second'}">
+                  <span class="place-medal">${i===0?'🏆':'🥈'}</span>
+                  <div class="place-label">PUESTO ${i+1}</div>
+                  <div class="place-title">${escapeHtml(x.ambiente)}</div>
+                  <div class="place-score">${x.puntaje} pts</div>
+                  <span class="emoji-level">${nivel.emoji}</span>
+                  <div class="level-text">${nivel.texto}</div>
+                  <div class="muted">Registros: ${x.registros} | 😎 ${x.optimo} 🤢 ${x.casi} 🤧 ${x.sigue} 🤮 ${x.demuestra}</div>
+                </div>`;
+            }).join('')}
+          </div>`;
+      }
+
+      if (!anterior.length) {
+        champ.innerHTML = '📌 <strong>Ganador del mes anterior:</strong> aún no hay datos del mes anterior.';
+      } else {
+        const c = anterior[0];
+        champ.innerHTML = `📌 <strong>Ganador del mes anterior:</strong><br>🏅 ${escapeHtml(c.ambiente)} con ${c.puntaje} puntos.`;
+      }
+    }
+
+    function obtenerNivelDesdePuntaje(puntaje) {
+      if (puntaje >= 10) return { emoji:'😎', texto:'¡Cuidado óptimo!' };
+      if (puntaje >= 7) return { emoji:'🤢', texto:'¡Casi lo logras!' };
+      if (puntaje >= 4) return { emoji:'🤧', texto:'¡Sigue intentando!' };
+      return { emoji:'🤮', texto:'¡Demuestra que sí puedes!' };
+    }
+
+    function textoGeneroAmbiente(ambiente) {
+      if (ambiente === 'SS.HH. MUJERES') return 'las estudiantes';
+      if (ambiente === 'SS.HH. VARONES') return 'los estudiantes';
+      return 'los estudiantes';
+    }
+
+    function crearTextoRankingVoz() {
+      const rankingConDatos = (rankingActualMes || []).filter(x => x.registros > 0);
+
+      if (!rankingConDatos.length) {
+        return 'Aún no hay registros suficientes para anunciar el ranking de Guardianes del Agua.';
+      }
+
+      const primero = rankingConDatos[0];
+      const segundo = rankingConDatos[1];
+
+      let texto = '¡Atención comunidad educativa! Bienvenidos al ranking de Guardianes del Agua. ';
+      texto += `Felicitaciones a ${textoGeneroAmbiente(primero.ambiente)} por tener el baño más ecoamigable. ${primero.ambiente} ocupa el primer puesto por su compromiso con el cuidado del agua, la limpieza y el orden. `;
+
+      if (segundo) {
+        texto += `${segundo.ambiente} ocupa el segundo puesto. Los animamos a seguir mejorando, usar responsablemente el agua, mantener los servicios higiénicos limpios y reportar cualquier desperfecto. `;
+      }
+
+      texto += 'Recuerden: cuidar el agua es cuidar la vida.';
+      return texto;
+    }
+
+    function elegirVozEspanol() {
+      const voces = window.speechSynthesis ? window.speechSynthesis.getVoices() : [];
+      return voces.find(v => v.lang && v.lang.toLowerCase().startsWith('es-pe')) ||
+             voces.find(v => v.lang && v.lang.toLowerCase().startsWith('es')) ||
+             voces[0] || null;
+    }
+
+    function leerRanking() {
+      if (!('speechSynthesis' in window)) {
+        mostrarMensaje('vozMessage','Este navegador no permite lectura de voz.','error');
+        return;
+      }
+
+      generarRankingPublico();
+      const texto = crearTextoRankingVoz();
+      window.speechSynthesis.cancel();
+
+      const u = new SpeechSynthesisUtterance(texto);
+      u.lang = 'es-PE';
+      u.rate = 0.92;
+      u.pitch = 1.02;
+      u.volume = 1;
+      const voz = elegirVozEspanol();
+      if (voz) u.voice = voz;
+
+      u.onstart = () => mostrarMensaje('vozMessage','Leyendo resultados...', 'success');
+      u.onend = () => mostrarMensaje('vozMessage','Lectura finalizada.', 'success');
+      u.onerror = () => mostrarMensaje('vozMessage','No se pudo reproducir la voz. Toque nuevamente el botón.', 'warning');
+
+      window.speechSynthesis.speak(u);
+    }
+
+    function detenerVoz() {
+      if ('speechSynthesis' in window) {
+        window.speechSynthesis.cancel();
+        mostrarMensaje('vozMessage','Lectura detenida.', 'warning');
+      }
+    }
+
+    function filtrarRegistrosPorPeriodo(periodo) {
+      const registros = obtenerRegistros();
+      const hoyISO = obtenerFechaLocalISO();
+      const hoy = new Date(hoyISO + 'T00:00:00');
+
+      if (periodo === 'todo') return registros;
+      if (periodo === 'hoy') return registros.filter(r => r.fecha === hoyISO);
+      if (periodo === 'mes') return registros.filter(r => (r.mes || (r.fecha || '').slice(0,7)) === hoyISO.slice(0,7));
+      if (periodo === 'anio') return registros.filter(r => r.fecha && r.fecha.slice(0,4) === hoyISO.slice(0,4));
+      if (periodo === 'semana') {
+        const diaSemana = hoy.getDay() === 0 ? 7 : hoy.getDay();
+        const inicio = new Date(hoy); inicio.setDate(hoy.getDate() - diaSemana + 1);
+        const fin = new Date(inicio); fin.setDate(inicio.getDate() + 6);
+        return registros.filter(r => {
+          const f = new Date(r.fecha + 'T00:00:00');
+          return f >= inicio && f <= fin;
+        });
+      }
+      return registros;
+    }
+
+    function nombrePeriodo(p) {
+      return p === 'hoy' ? 'de hoy' : p === 'semana' ? 'de esta semana' : p === 'mes' ? 'del mes actual' : p === 'anio' ? 'del año' : 'de todo el registro';
+    }
+
+    function calcularResumen(registros) {
+      const resumen = {};
+      ambientes.forEach(a => resumen[a] = {
+        ambiente:a, total:0, puntaje:0, leves:0, graves:0, reparaciones:0,
+        optimo:0, casi:0, sigue:0, demuestra:0
+      });
+
+      registros.forEach(r => {
+        if (!resumen[r.ambiente]) return;
+        const d = resumen[r.ambiente];
+        d.total++;
+        d.puntaje += Number(r.puntaje || 0);
+        d.leves += Array.isArray(r.leves) ? r.leves.length : 0;
+        d.graves += Array.isArray(r.graves) ? r.graves.length : 0;
+        d.reparaciones += Array.isArray(r.reparacion) ? r.reparacion.length : 0;
+        if (r.emoji === '😎') d.optimo++;
+        else if (r.emoji === '🤢') d.casi++;
+        else if (r.emoji === '🤧') d.sigue++;
+        else if (r.emoji === '🤮') d.demuestra++;
+      });
+      return resumen;
+    }
+
+    function actualizarEstadisticas() {
+      if (rolActual !== 'Coordinadora') return;
+      const periodo = $('filtroPeriodoStats').value;
+      const registros = filtrarRegistrosPorPeriodo(periodo);
+      const resumen = calcularResumen(registros);
+      generarResumenGeneral(registros, resumen, periodo);
+      generarTablaIncidencias(resumen);
+      generarGrafico(resumen);
+      generarAlertasReparacion();
+    }
+
+    function generarResumenGeneral(registros, resumen, periodo) {
+      const totalLeves = registros.reduce((s,r)=>s + ((r.leves || []).length),0);
+      const totalGraves = registros.reduce((s,r)=>s + ((r.graves || []).length),0);
+      const totalReparaciones = registros.reduce((s,r)=>s + ((r.reparacion || []).length),0);
+      const totalIncidencias = totalLeves + totalGraves + totalReparaciones;
+      const dias = new Set(registros.map(r=>r.fecha)).size;
+
+      $('resumenGeneralIncidencias').innerHTML = `
+        <h3>Resumen general ${nombrePeriodo(periodo)}</h3>
+        <div class="kpi-grid">
+          <div class="kpi-card total"><span>Total incidencias</span><strong>${totalIncidencias}</strong><small>Cuidado + agua + reparación</small></div>
+          <div class="kpi-card leve"><span>Incidencias de cuidado</span><strong>${totalLeves}</strong><small>-1 punto</small></div>
+          <div class="kpi-card grave"><span>Incidencias graves de agua</span><strong>${totalGraves}</strong><small>-3 puntos</small></div>
+          <div class="kpi-card reparacion"><span>Reparaciones</span><strong>${totalReparaciones}</strong><small>-5 puntos</small></div>
+        </div>
+        <p class="muted">Días con registro: ${dias} | Registros considerados: ${registros.length}</p>
+      `;
+    }
+
+    function generarTablaIncidencias(resumen) {
+      $('resumenEstadistico').innerHTML = `
+        <div class="tabla-scroll">
+          <table class="tabla-cuantitativa">
+            <thead>
+              <tr>
+                <th>Ambiente</th><th>Registros</th><th>Cuidado</th><th>Graves agua</th><th>Reparación</th><th>Total incidencias</th><th>😎</th><th>🤢</th><th>🤧</th><th>🤮</th>
+              </tr>
+            </thead>
+            <tbody>
+              ${ambientes.map(a => {
+                const d = resumen[a];
+                const totalInc = d.leves + d.graves + d.reparaciones;
+                return `
+                  <tr>
+                    <td><strong>${escapeHtml(a)}</strong></td>
+                    <td>${d.total}</td>
+                    <td>${d.leves}</td>
+                    <td>${d.graves}</td>
+                    <td>${d.reparaciones}</td>
+                    <td><strong>${totalInc}</strong></td>
+                    <td>${d.optimo}</td>
+                    <td>${d.casi}</td>
+                    <td>${d.sigue}</td>
+                    <td>${d.demuestra}</td>
+                  </tr>`;
+              }).join('')}
+            </tbody>
+          </table>
+        </div>
+      `;
+    }
+
+    function generarGrafico(resumen) {
+      const canvas = $('graficoAmbientes');
+      if (!canvas || typeof Chart === 'undefined') return;
+      if (chartAmbientes) chartAmbientes.destroy();
+
+      chartAmbientes = new Chart(canvas, {
+        type:'bar',
+        data:{
+          labels:ambientes,
+          datasets:[
+            { label:'Incidencias de cuidado', data:ambientes.map(a=>resumen[a].leves), backgroundColor:'#f59e0b' },
+            { label:'Graves de agua', data:ambientes.map(a=>resumen[a].graves), backgroundColor:'#dc2626' },
+            { label:'Reparación necesaria', data:ambientes.map(a=>resumen[a].reparaciones), backgroundColor:'#7f1d1d' }
+          ]
+        },
+        options:{
+          responsive:true,
+          maintainAspectRatio:false,
+          plugins:{ legend:{position:'top'}, title:{display:true, text:'Incidencias por SS.HH.'} },
+          scales:{ y:{ beginAtZero:true, ticks:{ precision:0 } } }
+        }
+      });
+    }
+
+    function generarInforme() {
+      if (rolActual !== 'Coordinadora') return;
+
+      const periodo = $('filtroPeriodoInforme').value;
+      const registros = filtrarRegistrosPorPeriodo(periodo);
+      const resumen = calcularResumen(registros);
+      const totalLeves = registros.reduce((s,r)=>s + ((r.leves || []).length),0);
+      const totalGraves = registros.reduce((s,r)=>s + ((r.graves || []).length),0);
+      const totalReparaciones = registros.reduce((s,r)=>s + ((r.reparacion || []).length),0);
+      const totalIncidencias = totalLeves + totalGraves + totalReparaciones;
+
+      const rankingIncidencias = ambientes.map(a => {
+        const d = resumen[a];
+        return { ambiente:a, totalIncidencias:d.leves + d.graves + d.reparaciones, leves:d.leves, graves:d.graves, reparaciones:d.reparaciones, total:d.total };
+      }).sort((a,b)=>b.totalIncidencias-a.totalIncidencias);
+
+      const mayor = rankingIncidencias[0];
+      const menor = rankingIncidencias[rankingIncidencias.length - 1];
+
+      if (!registros.length) {
+        ultimoInformeTexto = 'No hay registros ' + nombrePeriodo(periodo) + ' para generar un informe.';
+        $('informeAutomatico').innerHTML = '<p>' + ultimoInformeTexto + '</p>';
+        generarAlertasReparacion();
+        return;
+      }
+
+      ultimoInformeTexto = `Informe cuantitativo de Guardianes del Agua ${nombrePeriodo(periodo)}. Se analizaron ${registros.length} registros de SS.HH. Se identificaron ${totalIncidencias} incidencias en total: ${totalLeves} incidencias de cuidado, ${totalGraves} incidencias graves relacionadas al agua y ${totalReparaciones} reparaciones necesarias. El ambiente con mayor cantidad de incidencias fue ${mayor.ambiente}, con ${mayor.totalIncidencias} incidencias. El ambiente con menor cantidad de incidencias fue ${menor.ambiente}, con ${menor.totalIncidencias} incidencias. Estos datos permiten tomar decisiones para fortalecer el uso responsable del agua, la limpieza y la conservación de los servicios higiénicos.`;
+
+      $('informeAutomatico').innerHTML = `
+        <div class="kpi-grid">
+          <div class="kpi-card total"><span>Total incidencias</span><strong>${totalIncidencias}</strong></div>
+          <div class="kpi-card leve"><span>Cuidado</span><strong>${totalLeves}</strong></div>
+          <div class="kpi-card grave"><span>Graves agua</span><strong>${totalGraves}</strong></div>
+          <div class="kpi-card reparacion"><span>Reparación</span><strong>${totalReparaciones}</strong></div>
+        </div>
+        <p><strong>Registros analizados:</strong> ${registros.length}</p>
+        <p><strong>Mayor cantidad de incidencias:</strong> ${escapeHtml(mayor.ambiente)} (${mayor.totalIncidencias})</p>
+        <p><strong>Menor cantidad de incidencias:</strong> ${escapeHtml(menor.ambiente)} (${menor.totalIncidencias})</p>
+
+        <h3>Incidencias por ambiente</h3>
+        <div class="tabla-scroll">
+          <table class="tabla-cuantitativa">
+            <thead><tr><th>Ambiente</th><th>Cuidado</th><th>Graves agua</th><th>Reparación</th><th>Total</th></tr></thead>
+            <tbody>
+              ${rankingIncidencias.map(d=>`
+                <tr>
+                  <td><strong>${escapeHtml(d.ambiente)}</strong></td>
+                  <td>${d.leves}</td>
+                  <td>${d.graves}</td>
+                  <td>${d.reparaciones}</td>
+                  <td><strong>${d.totalIncidencias}</strong></td>
+                </tr>`).join('')}
+            </tbody>
+          </table>
+        </div>
+
+        <h3>Texto listo para copiar</h3>
+        <textarea id="informeTexto" readonly>${escapeHtml(ultimoInformeTexto)}</textarea>
+      `;
+
+      generarAlertasReparacion();
+    }
+
+    function generarAlertasReparacion() {
+      const cont = $('alertasReparacion');
+      if (!cont) return;
+
+      const periodo = $('filtroPeriodoInforme') ? $('filtroPeriodoInforme').value : 'mes';
+      const registros = filtrarRegistrosPorPeriodo(periodo).filter(r => r.reparacion && r.reparacion.length);
+
+      if (!registros.length) {
+        cont.innerHTML = '<div class="progress-box">No hay alertas de reparación en este periodo.</div>';
+        return;
+      }
+
+      cont.innerHTML = registros.sort((a,b)=>b.fecha.localeCompare(a.fecha)).map(r => `
+        <div class="alert-item">
+          <strong>⚠️ ${escapeHtml(r.ambiente)} - ${formatearFecha(r.fecha)}</strong><br>
+          <span>Reparación: ${escapeHtml((r.reparacion || []).map(x=>x.nombre).join(', '))}</span><br>
+          <span>Detalle: ${escapeHtml(r.detalleReparacion || 'Sin detalle')}</span><br>
+          <span class="muted">Registró: ${escapeHtml(r.usuario || '-')} | Hora: ${escapeHtml(r.hora || '-')}</span>
+        </div>
+      `).join('');
+    }
+
+    function mostrarHistorial() {
+      const filtro = $('historialFechaFiltro').value;
+      let registros = obtenerRegistros();
+      if (filtro) registros = registros.filter(r => r.fecha === filtro);
+      registros.sort((a,b)=>b.fecha.localeCompare(a.fecha) || a.ambiente.localeCompare(b.ambiente));
+
+      const lista = $('historialLista');
+      lista.innerHTML = '';
+      $('historialResumen').style.display = 'block';
+
+      if (!registros.length) {
+        $('historialResumen').textContent = filtro ? 'No hay registros para el ' + formatearFecha(filtro) + '.' : 'Todavía no hay registros guardados.';
+        return;
+      }
+
+      $('historialResumen').textContent = registros.length + ' registro(s) mostrado(s).';
+      registros.forEach(r => {
+        const leves = (r.leves || []).map(x=>x.nombre).join(', ');
+        const graves = (r.graves || []).map(x=>x.nombre).join(', ');
+        const reparacion = (r.reparacion || []).map(x=>x.nombre).join(', ');
+        const div = document.createElement('div');
+        div.className = 'historial-card';
+        div.innerHTML = `
+          <div class="historial-top">
+            <span class="historial-aula">${escapeHtml(r.ambiente)} - ${r.puntaje || 0} pts</span>
+            <span class="emoji-badge">${escapeHtml(r.emoji || '')}</span>
+          </div>
+          <div><strong>${escapeHtml(r.nivelTexto || '')}</strong></div>
+          <div class="muted">Fecha: ${formatearFecha(r.fecha)} | Registró: ${escapeHtml(r.usuario || '-')} | Hora: ${escapeHtml(r.hora || '-')}</div>
+          ${leves ? '<div><strong>Cuidado:</strong> ' + escapeHtml(leves) + '</div>' : ''}
+          ${graves ? '<div><strong>Graves agua:</strong> ' + escapeHtml(graves) + '</div>' : ''}
+          ${reparacion ? '<div><strong>Reparación:</strong> ' + escapeHtml(reparacion) + '</div>' : ''}
+          ${r.detalleReparacion ? '<div><strong>Detalle:</strong> ' + escapeHtml(r.detalleReparacion) + '</div>' : ''}
+        `;
+        lista.appendChild(div);
+      });
+    }
+
+    function crearTablaHTML(titulo, encabezados, filas) {
+      return `<h2>${escapeHtml(titulo)}</h2><table border="1"><thead><tr>${encabezados.map(h=>`<th>${escapeHtml(h)}</th>`).join('')}</tr></thead><tbody>${filas.map(f=>`<tr>${f.map(v=>`<td>${escapeHtml(v)}</td>`).join('')}</tr>`).join('')}</tbody></table><br>`;
+    }
+
+    function crearExcelHTML() {
+      const periodo = $('filtroPeriodoInforme') ? $('filtroPeriodoInforme').value : 'mes';
+      const registros = filtrarRegistrosPorPeriodo(periodo).sort((a,b)=>a.fecha.localeCompare(b.fecha) || a.ambiente.localeCompare(b.ambiente));
+      const resumen = calcularResumen(registros);
+      const alertas = registros.filter(r=>r.reparacion && r.reparacion.length);
+
+      const totalLeves = registros.reduce((s,r)=>s + ((r.leves || []).length),0);
+      const totalGraves = registros.reduce((s,r)=>s + ((r.graves || []).length),0);
+      const totalReparaciones = registros.reduce((s,r)=>s + ((r.reparacion || []).length),0);
+      const totalIncidencias = totalLeves + totalGraves + totalReparaciones;
+
+      let html = '<html><head><meta charset="UTF-8"></head><body>';
+      html += crearTablaHTML('Resumen general - ' + nombrePeriodo(periodo), ['Indicador','Cantidad'], [
+        ['Registros analizados', registros.length],
+        ['Total incidencias', totalIncidencias],
+        ['Incidencias de cuidado', totalLeves],
+        ['Incidencias graves de agua', totalGraves],
+        ['Reparaciones necesarias', totalReparaciones]
+      ]);
+
+      html += crearTablaHTML('Registros completos', ['Fecha','Ambiente','Puntaje','Emoticón','Nivel','Cuidado','Cantidad cuidado','Graves agua','Cantidad graves','Reparación','Cantidad reparación','Detalle','Registrado por','Hora'], registros.map(r => [
+        r.fecha, r.ambiente, r.puntaje || 0, r.emoji || '', r.nivelTexto || '', (r.leves || []).map(x=>x.nombre).join(', '), (r.leves || []).length, (r.graves || []).map(x=>x.nombre).join(', '), (r.graves || []).length, (r.reparacion || []).map(x=>x.nombre).join(', '), (r.reparacion || []).length, r.detalleReparacion || '', r.usuario || '', r.hora || ''
+      ]));
+
+      html += crearTablaHTML('Incidencias por ambiente', ['Ambiente','Registros','Cuidado','Graves agua','Reparación','Total incidencias','Cuidado óptimo','Casi lo logras','Sigue intentando','Demuestra que sí puedes'], ambientes.map(a => {
+        const d = resumen[a];
+        return [a, d.total, d.leves, d.graves, d.reparaciones, d.leves + d.graves + d.reparaciones, d.optimo, d.casi, d.sigue, d.demuestra];
+      }));
+
+      html += crearTablaHTML('Alertas de reparación', ['Fecha','Ambiente','Reparación','Detalle','Registrado por','Hora'], alertas.map(r => [r.fecha, r.ambiente, (r.reparacion || []).map(x=>x.nombre).join(', '), r.detalleReparacion || '', r.usuario || '', r.hora || '']));
+      html += '</body></html>';
+      return html;
+    }
+
+    function crearContenidoTabulado(registros) {
+      const filas = [['Fecha','Ambiente','Puntaje','Emoticón','Nivel','Cuidado','Graves agua','Reparación','Detalle','Registrado por','Hora']]
+        .concat(registros.map(r => [
+          r.fecha || '-', r.ambiente || '-', r.puntaje || 0, r.emoji || '', r.nivelTexto || '',
+          (r.leves || []).map(x=>x.nombre).join(', '),
+          (r.graves || []).map(x=>x.nombre).join(', '),
+          (r.reparacion || []).map(x=>x.nombre).join(', '),
+          r.detalleReparacion || '-', r.usuario || '-', r.hora || '-'
+        ]));
+      return filas.map(f => f.map(v => String(v).replace(/\t/g,' ').replace(/\n/g,' ')).join('\t')).join('\n');
+    }
+
+    function descargarExcel() {
+      if (rolActual !== 'Coordinadora') { alert('Solo la coordinadora puede descargar el Excel.'); return; }
+      const periodo = $('filtroPeriodoInforme') ? $('filtroPeriodoInforme').value : 'mes';
+      const registros = filtrarRegistrosPorPeriodo(periodo);
+      if (!registros.length) {
+        mostrarMensaje('informeMessage','No hay registros para descargar en el periodo seleccionado.','error');
+        return;
+      }
+
+      $('fallbackDescarga').style.display = 'block';
+      $('datosParaCopiar').value = crearContenidoTabulado(registros);
+
+      try {
+        const blob = new Blob(['\ufeff' + crearExcelHTML()], { type:'application/vnd.ms-excel;charset=utf-8' });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = 'guardianes_agua_informe.xls';
+        a.style.display = 'none';
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        setTimeout(() => URL.revokeObjectURL(url), 1500);
+        mostrarMensaje('informeMessage','Se generó el Excel con tablas separadas.','success');
+      } catch(e) {
+        mostrarMensaje('informeMessage','El navegador bloqueó la descarga. Use el respaldo para copiar.','warning');
+      }
+    }
+
+    async function borrarPorDia() {
+      if (rolActual !== 'Coordinadora') { alert('Solo la coordinadora puede borrar registros.'); return; }
+      const fecha = $('fechaBorrarInput').value;
+      if (!fecha) { mostrarMensaje('adminMessage','Seleccione una fecha.','error'); return; }
+      if (!confirm('¿Seguro que desea borrar los registros del ' + formatearFecha(fecha) + '?')) return;
+
+      const registros = obtenerRegistros();
+      const aBorrar = registros.filter(r => r.fecha === fecha);
+      const nuevos = registros.filter(r => r.fecha !== fecha);
+
+      if (firebaseDisponible && db) {
+        try {
+          const batch = db.batch();
+          aBorrar.forEach(r => batch.delete(db.collection(COLECCION).doc(r.id || crearIdRegistro(r.fecha,r.ambiente))));
+          await batch.commit();
+        } catch(e) {
+          console.error(e);
+          mostrarMensaje('adminMessage','No se pudo borrar en Firebase. Se actualizará localmente.','warning');
+        }
+      }
+
+      guardarCache(nuevos);
+      mostrarMensaje('adminMessage','Se borraron ' + aBorrar.length + ' registro(s).','success');
+      cargarSeleccionesDeFecha(); mostrarHistorial(); actualizarEstadisticas(); generarInforme(); generarRankingPublico();
+    }
+
+    async function limpiarRegistros() {
+      if (rolActual !== 'Coordinadora') { alert('Solo la coordinadora puede limpiar registros.'); return; }
+      if (!confirm('¿Seguro que desea borrar TODOS los registros?')) return;
+
+      const registros = obtenerRegistros();
+      if (firebaseDisponible && db) {
+        try {
+          const batch = db.batch();
+          registros.forEach(r => batch.delete(db.collection(COLECCION).doc(r.id || crearIdRegistro(r.fecha,r.ambiente))));
+          await batch.commit();
+        } catch(e) {
+          console.error(e);
+          mostrarMensaje('adminMessage','No se pudo limpiar Firebase. Se limpiará localmente.','warning');
+        }
+      }
+
+      registrosCache = [];
+      localStorage.removeItem(STORAGE_REGISTROS);
+      cargarSeleccionesDeFecha(); mostrarHistorial(); actualizarEstadisticas(); generarInforme(); generarRankingPublico();
+      mostrarMensaje('adminMessage','Se limpiaron todos los registros.','success');
+    }
+
+    async function copiarTexto(textareaId, messageId) {
+      const t = $(textareaId);
+      if (!t || !t.value) { mostrarMensaje(messageId,'No hay texto para copiar.','error'); return; }
+      t.removeAttribute('readonly'); t.focus(); t.select(); t.setSelectionRange(0, t.value.length);
+      let ok = false;
+      try { ok = document.execCommand('copy'); } catch(e) { ok = false; }
+      t.setAttribute('readonly','readonly');
+      mostrarMensaje(messageId, ok ? 'Texto copiado correctamente.' : 'El celular bloqueó la copia automática. El texto quedó seleccionado.', ok ? 'success' : 'warning');
+    }
+
+    function cambiarTab(nombre) {
+      if ((nombre === 'Estadisticas' || nombre === 'Informe') && rolActual !== 'Coordinadora') nombre = 'Registrar';
+      document.querySelectorAll('.tab-section').forEach(s => s.classList.remove('active'));
+      const tab = $('tab' + nombre); if (tab) tab.classList.add('active');
+      document.querySelectorAll('.nav-btn').forEach(b => b.classList.toggle('active', b.getAttribute('data-tab') === nombre));
+      if (nombre === 'Historial') mostrarHistorial();
+      if (nombre === 'Estadisticas') actualizarEstadisticas();
+      if (nombre === 'Informe') generarInforme();
+    }
+
+    function conectarEventos() {
+      $('leerRankingBtn').addEventListener('click', leerRanking);
+      $('detenerVozBtn').addEventListener('click', detenerVoz);
+      $('loginBtn').addEventListener('click', login);
+      $('passwordInput').addEventListener('keydown', e => { if (e.key === 'Enter') login(); });
+      $('logoutBtn').addEventListener('click', logout);
+      $('fechaInput').addEventListener('change', cargarSeleccionesDeFecha);
+      $('guardarDiaBtn').addEventListener('click', guardarDia);
+      $('cargarHoyBtn').addEventListener('click', () => { $('fechaInput').value = obtenerFechaLocalISO(); cargarSeleccionesDeFecha(); });
+      $('historialFechaFiltro').addEventListener('change', mostrarHistorial);
+      $('verTodosHistorialBtn').addEventListener('click', () => { $('historialFechaFiltro').value = ''; mostrarHistorial(); });
+      $('filtroPeriodoStats').addEventListener('change', actualizarEstadisticas);
+      $('filtroPeriodoInforme').addEventListener('change', generarInforme);
+      $('borrarDiaBtn').addEventListener('click', borrarPorDia);
+      $('limpiarBtn').addEventListener('click', limpiarRegistros);
+      $('descargarExcelBtn').addEventListener('click', descargarExcel);
+      $('copiarDatosBtn').addEventListener('click', () => copiarTexto('datosParaCopiar','informeMessage'));
+      $('copiarInformeBtn').addEventListener('click', () => { generarInforme(); copiarTexto('informeTexto','informeMessage'); });
+      document.querySelectorAll('.nav-btn').forEach(b => b.addEventListener('click', () => cambiarTab(b.getAttribute('data-tab'))));
+    }
+
+    function runTests() {
+      console.group('Pruebas Guardianes del Agua');
+      console.assert(typeof login === 'function', 'login definido');
+      console.assert(ambientes.length === 2, '2 ambientes');
+      console.assert(formatearFecha('2026-05-27') === '27/05/2026', 'fecha ok');
+      const prueba = { leves:[{puntos:1}], graves:[{puntos:3}], reparacion:[{puntos:5}] };
+      console.assert(obtenerNivel(prueba).puntaje === 1, 'puntaje ok');
+      console.groupEnd();
+    }
+
+    document.addEventListener('DOMContentLoaded', async () => {
+      inicializarFirebase();
+      cargarUsuarios();
+      ponerFechaActual();
+      crearTarjetasAmbientes();
+      conectarEventos();
+      actualizarAvance();
+      runTests();
+      await cargarRegistros();
+      generarRankingPublico();
+      await cargarSesion();
+    });
+
+    window.login = login;
+  </script>
+</body>
+</html>
